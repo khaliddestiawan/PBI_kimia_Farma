@@ -1,0 +1,60 @@
+-- Create a new table called 'kf_table_analysis' in the 'kimia_farma' dataset
+CREATE TABLE `rakamin-kf-analytics-430807.kimia_farma.kf_table_analysis` AS
+-- Use a Common Table Expression (CTE) to perform the data transformation
+WITH cte AS (
+  SELECT
+    -- Select relevant columns from the source tables
+    ft.customer_name,
+    ft.transaction_id,
+    ft.date,
+    ft.branch_id,
+    kc.branch_name,
+    kc.kota,
+    kc.provinsi,
+    kc.rating AS rating_cabang,
+    p.product_id,
+    p.product_name,
+    p.price AS actual_price,
+    ft.discount_percentage,
+    -- Calculate the gross profit margin percentage based on the product price
+    CASE
+      WHEN p.price <= 50000 THEN 0.1
+      WHEN p.price > 50000 AND p.price <= 100000 THEN 0.15
+      WHEN p.price > 100000 AND p.price <= 300000 THEN 0.20
+      WHEN p.price > 300000 AND p.price <= 500000 THEN 0.25
+      WHEN p.price > 500000 THEN 0.30
+    END AS gross_laba_percentage,
+    -- Calculate the net sales price after applying the discount
+    p.price - (p.price * ft.discount_percentage) AS nett_sales,
+    ft.rating AS rating_transaksi
+  FROM
+    `rakamin-kf-analytics-430807.kimia_farma.kf_final_transaction` AS ft
+  -- Join the transaction data with the branch and product information
+  JOIN 
+    `rakamin-kf-analytics-430807.kimia_farma.kf_kantor_cabang` AS kc
+    ON ft.branch_id = kc.branch_id
+  JOIN
+    `rakamin-kf-analytics-430807.kimia_farma.kf_product` AS p
+    ON ft.product_id = p.product_id
+)
+-- Select the final columns and calculate the net profit
+SELECT
+  cte.customer_name,
+  cte.transaction_id,
+  cte.date,
+  cte.branch_id,
+  cte.branch_name,
+  cte.kota,
+  cte.provinsi,
+  cte.rating_cabang,
+  cte.product_id,
+  cte.product_name,
+  cte.actual_price,
+  cte.discount_percentage,
+  cte.gross_laba_percentage,
+  cte.nett_sales,
+  -- Calculate the net profit by multiplying the net sales and the gross profit margin percentage
+  cte.nett_sales * cte.gross_laba_percentage AS nett_profit,
+  cte.rating_transaksi
+FROM
+  cte
